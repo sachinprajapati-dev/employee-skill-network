@@ -17,7 +17,7 @@ public class KeepAliveConfig {
             restTemplate.getForObject(
                     "https://employee-skill-network.onrender.com/api/employees",
                     String.class);
-            System.out.println("✅ Keep alive ping sent!");
+            System.out.println("Keep alive ping sent!");
         } catch (Exception e) {
             System.out.println("Keep alive failed: " + e.getMessage());
         }
