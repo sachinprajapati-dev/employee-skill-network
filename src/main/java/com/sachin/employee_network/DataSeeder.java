@@ -7,15 +7,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
-/**
- * Seeds the graph using Neo4jClient with parameterised Cypher instead of
- * SDN repository.save(). SDN's repository save() needs to read back Neo4j's
- * internal node id after every write, and CognoDB's write response doesn't
- * give SDN what it expects there — it fails even on a single node with no
- * relationships (IllegalStateException: Could not retrieve an internal id
- * while saving). Neo4jClient issues plain Cypher over the Bolt driver and
- * doesn't depend on that internal-id round trip, so it works against CognoDB.
- */
 @Component
 @RequiredArgsConstructor
 public class DataSeeder implements CommandLineRunner {
@@ -26,7 +17,21 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) {
 
         // Clear existing data first
-        neo4jClient.query("MATCH (n) DETACH DELETE n").run();
+        // neo4jClient.query("MATCH (n) DETACH DELETE n").run();
+
+        // Only seed on a truly empty database. Without this check, every
+        // restart wipes the whole graph — including anything added later
+        // through the API/Postman — and recreates just the original demo data.
+        Long existingNodeCount = neo4jClient.query("MATCH (n) RETURN count(n) AS count")
+                .fetchAs(Long.class)
+                .one()
+                .orElse(0L);
+
+        if (existingNodeCount > 0) {
+            System.out.println("Database already has data (" + existingNodeCount
+                    + " nodes) — skipping seed.");
+            return;
+        }
 
         // ---- Skills ----
         String javaId = saveSkill("Java", "Backend", "Expert");
@@ -70,7 +75,7 @@ public class DataSeeder implements CommandLineRunner {
         linkProjects(emp4Id, hostelId, certReadyId);
         linkManager(emp4Id, managerId);
 
-        System.out.println("✅ Data seeded successfully!");
+        System.out.println("Data seeded successfully!");
     }
 
     private String saveSkill(String name, String category, String level) {

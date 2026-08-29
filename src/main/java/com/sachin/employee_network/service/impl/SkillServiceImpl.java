@@ -22,8 +22,6 @@ public class SkillServiceImpl implements SkillService {
 
     @Override
     public List<SkillResponse> getAllSkills() {
-        // Reads via the repository are fine — the internal-id issue only affects
-        // save().
         return skillRepository.findAll()
                 .stream()
                 .map(this::convertToResponse)
@@ -32,10 +30,6 @@ public class SkillServiceImpl implements SkillService {
 
     @Override
     public SkillResponse createSkill(SkillRequest request) {
-        // MERGE on name (the real business key) so calling this twice with the
-        // same name updates the existing node instead of creating a duplicate.
-        // The id is only generated the first time (ON CREATE); on a repeat call
-        // the existing id is kept and returned.
         String newId = UUID.randomUUID().toString();
 
         String id = neo4jClient.query("""

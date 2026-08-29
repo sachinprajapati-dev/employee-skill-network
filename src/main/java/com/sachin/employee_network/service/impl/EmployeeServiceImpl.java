@@ -6,8 +6,6 @@ import com.sachin.employee_network.entity.Employee;
 import com.sachin.employee_network.entity.Skill;
 import com.sachin.employee_network.entity.Project;
 import com.sachin.employee_network.repository.EmployeeRepository;
-import com.sachin.employee_network.repository.SkillRepository;
-import com.sachin.employee_network.repository.ProjectRepository;
 import com.sachin.employee_network.service.EmployeeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.neo4j.core.Neo4jClient;
@@ -23,14 +21,10 @@ import java.util.stream.Collectors;
 public class EmployeeServiceImpl implements EmployeeService {
 
     private final EmployeeRepository employeeRepository;
-    private final SkillRepository skillRepository;
-    private final ProjectRepository projectRepository;
     private final Neo4jClient neo4jClient;
 
     @Override
     public List<EmployeeResponse> getAllEmployees() {
-        // Reads via the repository are fine — the internal-id issue only affects
-        // save().
         return employeeRepository.findAll()
                 .stream()
                 .map(this::convertToResponse)
@@ -59,7 +53,6 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .bind(request.getDesignation()).to("designation")
                 .run();
 
-        // Skills — reuse existing skill by name, or create it, then link.
         List<String> skillNames = new ArrayList<>();
         if (request.getSkillNames() != null) {
             for (String skillName : request.getSkillNames()) {
@@ -69,7 +62,6 @@ public class EmployeeServiceImpl implements EmployeeService {
             }
         }
 
-        // Projects — reuse existing project by name, or create it, then link.
         List<String> projectNames = new ArrayList<>();
         if (request.getProjectNames() != null) {
             for (String projectName : request.getProjectNames()) {
@@ -79,11 +71,6 @@ public class EmployeeServiceImpl implements EmployeeService {
             }
         }
 
-        // Manager — looked up via raw Cypher rather than
-        // employeeRepository.findByName(), because SDN's derived query
-        // unreliably returns empty against CognoDB here (likely due to how it
-        // tries to hydrate Employee's self-referencing REPORTS_TO relationship
-        // when mapping results). Neo4jClient sidesteps that entirely.
         String managerName = null;
         if (request.getManagerName() != null) {
             var managerRow = neo4jClient.query("""
@@ -159,9 +146,6 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     private String findOrCreateSkill(String skillName) {
-        // MERGE on name (the business key), never on a freshly generated id —
-        // otherwise calling this with the same name twice creates duplicate
-        // Skill nodes, which then breaks findByName's single-record expectation.
         String newId = UUID.randomUUID().toString();
         return neo4jClient.query("""
                 MERGE (s:Skill {name: $name})
@@ -178,9 +162,6 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     private String findOrCreateProject(String projectName) {
-        // MERGE on name (the business key), never on a freshly generated id —
-        // otherwise calling this with the same name twice creates duplicate
-        // Project nodes, which then breaks findByName's single-record expectation.
         String newId = UUID.randomUUID().toString();
         return neo4jClient.query("""
                 MERGE (p:Project {name: $name})
